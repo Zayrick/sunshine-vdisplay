@@ -200,7 +200,7 @@ fn copy_cstr(dst: &mut [u8; 14], src: &str) {
     }
 }
 
-fn find_device_path() -> Result<Vec<u16>, String> {
+pub fn find_device_path() -> Result<Vec<u16>, String> {
     unsafe {
         let set = SetupDiGetClassDevsW(
             Some(&SUVDA_INTERFACE_GUID),

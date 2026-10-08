@@ -2,7 +2,7 @@
 
 在 Sunshine 中通过应用的 **前/后置命令（prep-cmd）** 实现 Apollo 式的虚拟显示器：串流开始时按客户端分辨率/帧率/HDR 创建虚拟显示器，结束时移除。
 
-底层调用的是 Apollo 使用的同一个驱动 —— [SudoVDA](https://github.com/SudoMaker/SudoVDA)（`SudoMaker Virtual Display Adapter`）。需要先安装该驱动（装过 Apollo 即已安装）。
+底层调用的是 Apollo 使用的同一个驱动 —— [SudoVDA](https://github.com/SudoMaker/SudoVDA)（`SudoMaker Virtual Display Adapter`）。驱动文件已内置在 `vdisplay.exe` 中，首次使用前执行一次 `vdisplay install-driver` 安装（会弹出 UAC 请求管理员权限）；`start` 本身不会安装驱动，因此无需管理员权限。装过 Apollo 的话驱动已存在，无需再装。
 
 ## 常用命令（Sunshine 前/后置命令）
 
@@ -58,6 +58,18 @@ cargo build --release
 # 产物：target/release/vdisplay.exe
 ```
 
+## 驱动安装
+
+`drivers/sudovda/` 下是 Apollo 打包的 SudoVDA 驱动（`SudoVDA.inf/.dll/.cat/.cer`），编译时嵌入 exe。安装流程与 Apollo 的 `install.bat` 相同，只是不再依赖 `nefconc.exe`，直接调用 SetupAPI：
+
+1. 将 `sudovda.cer` 导入本机 `Root` 和 `TrustedPublisher` 证书存储；
+2. 若不存在则创建 `Root\SudoMaker\SudoVDA` 设备节点（Display 类）；
+3. 用 `UpdateDriverForPlugAndPlayDevices` 在该节点上安装 `SudoVDA.inf`。
+
+`start` 检测不到驱动时直接报错退出，不会尝试安装。
+
+`vdisplay uninstall-driver` 依次执行：停止正在运行的虚拟显示器 → 移除 `Root\SudoMaker\SudoVDA` 设备节点 → 从驱动存储中删除 SudoVDA 驱动包（`oemNN.inf`）→ 从 `Root`/`TrustedPublisher` 移除证书。Apollo 与本工具使用同一个驱动，卸载后 Apollo 的虚拟显示器也将无法使用。
+
 ## Sunshine 配置
 
 1. 把 `vdisplay.exe` 放在一个当前用户可写的目录（日志 `vdisplay.log` 写在 exe 旁边，不可写时写到 `%TEMP%`）。
@@ -78,7 +90,9 @@ cargo build --release
 ```
 vdisplay start [options]   创建虚拟显示器（Sunshine do 命令）
 vdisplay stop              移除虚拟显示器（Sunshine undo 命令）
-vdisplay status            查看状态与日志路径
+vdisplay status            查看状态、驱动是否安装与日志路径
+vdisplay install-driver    （重新）安装内置的 SudoVDA 驱动（需要管理员权限，会自动请求）
+vdisplay uninstall-driver  卸载 SudoVDA：移除设备、驱动包与证书（需要管理员权限，会自动请求）
 
 start 选项（默认值来自 Sunshine 的 SUNSHINE_CLIENT_* 环境变量）：
   --width <px>          宽度              [SUNSHINE_CLIENT_WIDTH，否则 1920]

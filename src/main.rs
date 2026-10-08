@@ -13,6 +13,7 @@
 
 mod display;
 mod driver;
+mod install;
 mod ipc;
 mod logging;
 
@@ -46,6 +47,9 @@ Usage:
   vdisplay start [options]   Create the virtual display (use as Sunshine \"do\" command)
   vdisplay stop              Remove it again (use as Sunshine \"undo\" command)
   vdisplay status            Show whether a virtual display is active
+  vdisplay install-driver    (Re)install the bundled SudoVDA driver (asks for admin rights)
+  vdisplay uninstall-driver  Remove the SudoVDA device, driver package and certificate
+                             (asks for admin rights)
 
 Options for start (defaults come from Sunshine's SUNSHINE_CLIENT_* variables):
   --width <px>          Display width          [SUNSHINE_CLIENT_WIDTH, else 1920]
@@ -255,6 +259,9 @@ fn cmd_start(args: &[String]) -> Result<(), String> {
 
     if ipc::stop_daemon(15_000)? {
         log!("stopped previous virtual display");
+    }
+    if !install::driver_present() {
+        return Err("SudoVDA driver not found; run `vdisplay install-driver` once to install it".into());
     }
     remove_stale_display();
 
@@ -536,6 +543,8 @@ fn main() -> ExitCode {
         "start" => cmd_start(rest),
         "stop" => cmd_stop(),
         "daemon" => cmd_daemon(rest),
+        "install-driver" | "--install-driver" => install::install(),
+        "uninstall-driver" | "--uninstall-driver" => install::uninstall(),
         "status" => {
             println!(
                 "{}",
@@ -543,6 +552,14 @@ fn main() -> ExitCode {
                     "active"
                 } else {
                     "inactive"
+                }
+            );
+            println!(
+                "driver: {}",
+                if install::driver_present() {
+                    "installed"
+                } else {
+                    "not installed"
                 }
             );
             println!("log: {}", logging::path().display());
