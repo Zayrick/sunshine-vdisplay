@@ -42,6 +42,13 @@ use windows::core::GUID;
 use crate::driver::Driver;
 use crate::ipc::Handle;
 
+/// Version shown at runtime. Release builds get it from `VDISPLAY_VERSION` (set by CI
+/// from the release tag); local builds fall back to the Cargo.toml version.
+const VERSION: &str = match option_env!("VDISPLAY_VERSION") {
+    Some(v) => v,
+    None => env!("CARGO_PKG_VERSION"),
+};
+
 const USAGE: &str = "\
 Usage:
   vdisplay start [options]   Create the virtual display (use as Sunshine \"do\" command)
@@ -50,6 +57,7 @@ Usage:
   vdisplay install-driver    (Re)install the bundled SudoVDA driver (asks for admin rights)
   vdisplay uninstall-driver  Remove the SudoVDA device, driver package and certificate
                              (asks for admin rights)
+  vdisplay version           Print the version
 
 Options for start (defaults come from Sunshine's SUNSHINE_CLIENT_* variables):
   --width <px>          Display width          [SUNSHINE_CLIENT_WIDTH, else 1920]
@@ -358,6 +366,7 @@ fn cmd_daemon(args: &[String]) -> Result<(), String> {
 }
 
 fn run_daemon(opts: &Options) -> Result<(), String> {
+    log!("daemon: vdisplay {VERSION}");
     let (_alive, stop) = ipc::daemon_objects()?;
     let driver = Arc::new(Driver::open()?);
 
@@ -545,7 +554,12 @@ fn main() -> ExitCode {
         "daemon" => cmd_daemon(rest),
         "install-driver" | "--install-driver" => install::install(),
         "uninstall-driver" | "--uninstall-driver" => install::uninstall(),
+        "version" | "--version" | "-V" => {
+            println!("vdisplay {VERSION}");
+            Ok(())
+        }
         "status" => {
+            println!("version: {VERSION}");
             println!(
                 "{}",
                 if ipc::daemon_running() {
